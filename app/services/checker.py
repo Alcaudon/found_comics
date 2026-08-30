@@ -83,7 +83,9 @@ async def check_series(
     seen = set()
     unique_results = [r for r in all_results if not (r.url in seen or seen.add(r.url))]
 
-    match = find_match(series.title, series.volume, number, unique_results)
+    match = find_match(
+        series.title, series.volume, number, unique_results, publisher=series.publisher
+    )
     if match is None:
         return _save(
             db, series, number, STATUS_NO_ENCONTRADO,

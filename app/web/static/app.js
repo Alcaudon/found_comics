@@ -206,6 +206,7 @@ async function saveSeries() {
     }
     bootstrap.Modal.getInstance('#seriesModal').hide();
     loadSeries();
+    loadPublishers();  // una editorial nueva debe aparecer ya en el desplegable
   } catch (e) {
     alert(e.message);
   }
@@ -340,4 +341,17 @@ async function confirmImport() {
   }
 }
 
+// Rellena el desplegable de editoriales (las ya usadas + las habituales).
+// Si falla, el campo sigue siendo de texto libre: no bloquea el formulario.
+async function loadPublishers() {
+  try {
+    const publishers = await api('/api/series/publishers');
+    document.getElementById('publishersList').innerHTML =
+      publishers.map(p => `<option value="${esc(p)}"></option>`).join('');
+  } catch (e) {
+    console.warn('No se pudieron cargar las editoriales:', e.message);
+  }
+}
+
 loadSeries();
+loadPublishers();

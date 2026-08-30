@@ -6,7 +6,9 @@ de cómics ya está a la venta en Amazon España.
 ## Características
 
 - **Gestión de colección**: alta, edición y borrado de series (título, volumen,
-  editorial, último número poseído).
+  editorial, último número poseído). El campo *Editorial* es un desplegable con
+  las que ya usas más las habituales del cómic en España, y admite escribir una
+  nueva.
 - **Importación CSV/Excel**: sube tu colección desde una hoja de cálculo con
   vista previa y mapeo de columnas (sugerido automáticamente).
 - **Comprobación en Amazon**: para cada serie construye la consulta
@@ -59,8 +61,16 @@ Los tests usan una BD temporal propia y no tocan `found_comics.db`.
   con tests basados en fixtures HTML para poder repararla fácilmente.
 - La comprobación es **semiautomática**: se marca "posible" cuando un
   resultado contiene el título de la serie y una referencia clara al número
-  buscado; el enlace permite descartar falsos positivos (ediciones en otros
-  idiomas, formatos digitales, etc.).
+  buscado; el enlace permite confirmar o descartar el resultado.
+- Entre los candidatos válidos **no gana el primero, sino el que más señales
+  reúne**: editorial que coincide con la que anotaste (+3), volumen presente
+  (+2) y número citado en contexto —"nº 3", "vol. 3"— en vez de suelto (+1). A
+  igualdad manda el orden de Amazon. Por eso merece la pena rellenar la
+  editorial: es la señal que más desempata.
+- Se **descartan de entrada** las ediciones en otro idioma y los formatos
+  digitales o de audio (`tome`, `english`, `kindle`, `audible`…). La lista se
+  puede ajustar con la variable de entorno `FOUND_COMICS_EXCLUDE`
+  (separada por comas; vacía = no descartar nada).
 - Variable de entorno `FOUND_COMICS_DB` para cambiar la ruta de la base de
   datos (por defecto `./found_comics.db`).
 - Nota de entorno (Windows): en algún equipo Windows Defender ha bloqueado

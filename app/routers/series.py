@@ -47,6 +47,36 @@ def create_series(payload: schemas.SeriesIn, db: Session = Depends(get_db)):
     return series
 
 
+# Editoriales habituales del cómic en España, para que el desplegable sea
+# útil desde el primer día aunque la colección esté vacía.
+COMMON_PUBLISHERS = (
+    "Panini", "ECC Ediciones", "Norma Editorial", "Planeta Cómic",
+    "Astiberri", "Dolmen", "Yermo Ediciones", "SD Distribuciones",
+    "Ivrea", "Milky Way Ediciones", "Distrito Manga", "Kamite",
+    "La Cúpula", "Reservoir Books", "Salamandra Graphic",
+)
+
+
+# OJO: esta ruta debe ir antes que '/{series_id}', o FastAPI intentaría
+# interpretar "publishers" como un entero y respondería 422.
+@router.get("/publishers", response_model=list[str])
+def list_publishers(db: Session = Depends(get_db)):
+    """Editoriales para el desplegable: las que ya usas más las habituales."""
+    used = db.scalars(
+        select(models.Series.publisher)
+        .where(models.Series.publisher.is_not(None))
+        .distinct()
+    ).all()
+
+    # Las tuyas mandan sobre la lista base si solo cambian en mayúsculas.
+    merged: dict[str, str] = {}
+    for name in list(used) + list(COMMON_PUBLISHERS):
+        clean = (name or "").strip()
+        if clean:
+            merged.setdefault(clean.casefold(), clean)
+    return sorted(merged.values(), key=str.casefold)
+
+
 @router.get("/{series_id}", response_model=schemas.SeriesWithLastCheckOut)
 def get_series(series_id: int, db: Session = Depends(get_db)):
     series = db.get(models.Series, series_id)

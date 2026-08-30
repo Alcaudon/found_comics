@@ -6,7 +6,15 @@ from app.services.amazon import (
     build_search_url,
     parse_search_page,
 )
-from app.services.detector import find_match, number_matches, normalize, title_tokens_match
+from app.services.amazon import AmazonSearchResult
+from app.services.detector import (
+    find_match,
+    is_excluded,
+    number_matches,
+    normalize,
+    publisher_matches,
+    title_tokens_match,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -73,3 +81,37 @@ def test_find_match_picks_right_result():
 def test_find_match_ignores_other_series():
     results = _results()
     assert find_match("Batman", None, 62, results) is None
+
+
+def test_is_excluded_filters_language_and_digital():
+    # Ediciones en otro idioma y formatos digitales/audio.
+    assert is_excluded("BATMAN - Tome 2")
+    assert is_excluded("Batman #2 (English Edition)")
+    assert is_excluded("Batman 2 Versión Kindle")
+    # "tomo" (español) no debe confundirse con "tome" (francés).
+    assert not is_excluded("Batman nº 2 (tomo cartoné) - ECC")
+
+
+def test_publisher_matches_significant_token():
+    assert publisher_matches("Panini Comics", "Batman nº 2 - Panini")
+    assert publisher_matches("ECC Ediciones", "Batman nº 2 (ECC)")
+    # "Comics"/"Ediciones" solos no bastan: no distinguen una editorial.
+    assert not publisher_matches("Panini Comics", "Batman nº 2 - ECC Comics")
+    assert not publisher_matches(None, "Batman nº 2 - Panini")
+
+
+def test_find_match_prefers_publisher_and_skips_excluded():
+    """El primero que casa no siempre es el bueno: debe ganar el que
+    coincide en editorial, y las ediciones extranjeras ni se consideran."""
+    results = [
+        AmazonSearchResult("Batman - Tome 2", "https://a/fr", 20.0),      # francés
+        AmazonSearchResult("Batman 2", "https://a/generico", 15.0),       # casa, sin editorial
+        AmazonSearchResult("Batman nº 2 - ECC Ediciones", "https://a/ecc", 17.0),
+    ]
+    match = find_match("Batman", None, 2, results, publisher="ECC")
+    assert match is not None
+    assert match.url == "https://a/ecc"
+
+    # Sin editorial anotada, gana el orden de Amazon entre los válidos.
+    match_sin_editorial = find_match("Batman", None, 2, results)
+    assert match_sin_editorial.url == "https://a/generico"
