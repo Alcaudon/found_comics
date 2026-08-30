@@ -148,9 +148,10 @@ async def search(
     try:
         last_error: Exception | None = None
         for attempt in range(max_retries):
-            headers = _random_headers()
+            # Usa las cabeceras (y cookies) del cliente: rotar el User-Agent a
+            # media sesión, con cookies pegajosas, delata al raspador.
             try:
-                response = await client.get(url, headers=headers)
+                response = await client.get(url)
                 if response.status_code in (503, 429):
                     raise AmazonBlockedError(f"HTTP {response.status_code}")
                 response.raise_for_status()
@@ -172,9 +173,17 @@ async def search(
 
 
 def _random_headers() -> dict[str, str]:
+    # Cabeceras de un navegador real haciendo una navegación normal. No se
+    # fija Accept-Encoding: httpx anuncia solo lo que sabe descomprimir.
     return {
         "User-Agent": random.choice(USER_AGENTS),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "es-ES,es;q=0.9,en;q=0.7",
         "Referer": "https://www.amazon.es/",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
     }

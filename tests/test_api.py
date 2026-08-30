@@ -114,6 +114,7 @@ def test_check_all_bulk_records_results(monkeypatch):
     from app.services import amazon, checker
 
     monkeypatch.setattr(checker, "BULK_DELAY_SECONDS", 0)
+    monkeypatch.setattr(checker, "BULK_DELAY_JITTER_SECONDS", 0)
 
     s1 = client.post("/api/series", json={"title": "Serie A", "last_number": 1}).json()
     s2 = client.post("/api/series", json={"title": "Serie B", "last_number": 9}).json()
