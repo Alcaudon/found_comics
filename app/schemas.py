@@ -58,10 +58,6 @@ class ImportPreview(BaseModel):
     suggested_mapping: dict[str, str]
 
 
-class ImportConfirm(BaseModel):
-    mapping: dict[str, str]
-
-
 class ImportResult(BaseModel):
     created: int
     skipped: list[str] = Field(default_factory=list)
