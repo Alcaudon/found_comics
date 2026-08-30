@@ -22,6 +22,12 @@ async function api(path, options = {}) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `HTTP ${res.status}`);
   }
+  // Respuestas sin cuerpo (p. ej. DELETE -> 204 No Content) no llevan JSON:
+  // parsearlas lanzaría "Unexpected end of JSON input" y hacía que el botón
+  // Borrar pareciera no funcionar (el servidor sí borraba).
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return null;
+  }
   return res.json();
 }
 
