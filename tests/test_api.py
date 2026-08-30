@@ -106,3 +106,37 @@ def test_check_series_error_recorded(monkeypatch):
 
     checks = client.get(f"/api/series/{series['id']}/checks").json()
     assert len(checks) == 1
+
+
+def test_check_all_bulk_records_results(monkeypatch):
+    """Regresión: 'Comprobar todas' corre en el event loop; el checker no
+    debe usar asyncio.run (antes marcaba todo como 'error')."""
+    from app.services import amazon, checker
+
+    monkeypatch.setattr(checker, "BULK_DELAY_SECONDS", 0)
+
+    s1 = client.post("/api/series", json={"title": "Serie A", "last_number": 1}).json()
+    s2 = client.post("/api/series", json={"title": "Serie B", "last_number": 9}).json()
+
+    async def fake_search(query, client=None, max_retries=0):
+        # Devuelve un resultado que encaja con el siguiente número de cada serie.
+        number = query.strip().split()[-1]
+        return [
+            amazon.AmazonSearchResult(
+                title=f"{query.rsplit(' ', 1)[0]} {number}",
+                url=f"https://www.amazon.es/dp/{number}",
+                price=9.99,
+            )
+        ]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+
+    # TestClient ejecuta las tareas en segundo plano antes de devolver la respuesta.
+    res = client.post("/api/checks/all")
+    assert res.status_code == 200
+
+    for s in (s1, s2):
+        checks = client.get(f"/api/series/{s['id']}/checks").json()
+        assert len(checks) == 1
+        assert checks[0]["status"] == "posible", checks[0]
+        assert checks[0]["status"] != "error"
