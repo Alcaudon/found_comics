@@ -174,3 +174,27 @@ def test_update_check_status(monkeypatch):
     assert client.patch(
         "/api/checks/99999", json={"status": "disponible"}
     ).status_code == 404
+
+
+def test_list_series_returns_latest_check(monkeypatch):
+    from app.services import amazon
+
+    series = client.post(
+        "/api/series", json={"title": "Serie Z", "last_number": 0}
+    ).json()
+
+    statuses = iter(["no_encontrado", "posible"])
+
+    async def fake_search(query, client=None, max_retries=0):
+        # Primera comprobación: sin resultados. Segunda: un match.
+        if next(statuses) == "no_encontrado":
+            return []
+        return [amazon.AmazonSearchResult("Serie Z 1", "https://amazon.es/dp/z", 1.0)]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+    client.post(f"/api/checks/{series['id']}")  # -> no_encontrado
+    client.post(f"/api/checks/{series['id']}")  # -> posible
+
+    listed = client.get("/api/series").json()[0]
+    # Debe reflejar la MÁS reciente (posible), no la primera.
+    assert listed["last_check"]["status"] == "posible"
