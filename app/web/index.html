@@ -100,7 +100,10 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Editorial</label>
-              <input class="form-control" id="fPublisher" maxlength="255" placeholder="Ej. Panini">
+              <input class="form-control" id="fPublisher" list="publishersList" maxlength="255"
+                     placeholder="Ej. Panini" autocomplete="off">
+              <datalist id="publishersList"></datalist>
+              <div class="form-text">Despliega para elegir una, o escribe una nueva.</div>
             </div>
             <div class="mb-3">
               <label class="form-label">Notas</label>

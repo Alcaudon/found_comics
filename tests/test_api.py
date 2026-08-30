@@ -56,6 +56,22 @@ def test_missing_series_404():
     assert client.get("/api/series/999").status_code == 404
 
 
+def test_list_publishers():
+    """La ruta /publishers debe resolverse antes que /{series_id} (si no,
+    'publishers' se parsearía como entero y daría 422)."""
+    client.post(
+        "/api/series",
+        json={"title": "Serie P", "publisher": "Editorial Rarita", "last_number": 1},
+    )
+    res = client.get("/api/series/publishers")
+    assert res.status_code == 200
+    publishers = res.json()
+    assert "Editorial Rarita" in publishers      # la tuya
+    assert "Panini" in publishers                # de la lista habitual
+    assert publishers == sorted(publishers, key=str.casefold)
+    assert len(publishers) == len(set(publishers))  # sin duplicados
+
+
 CSV_CONTENT = "titulo,volumen,editorial,ultimo numero\nAmazing Spider-Man,2022,Panini,61\nDaredevil,2022,Panini,40\n"
 
 
