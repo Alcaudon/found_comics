@@ -140,3 +140,37 @@ def test_check_all_bulk_records_results(monkeypatch):
         assert len(checks) == 1
         assert checks[0]["status"] == "posible", checks[0]
         assert checks[0]["status"] != "error"
+
+
+def test_update_check_status(monkeypatch):
+    from app.services import amazon
+
+    series = client.post(
+        "/api/series", json={"title": "Serie Y", "last_number": 3}
+    ).json()
+
+    async def fake_search(query, client=None, max_retries=0):
+        return [amazon.AmazonSearchResult("Serie Y 4", "https://amazon.es/dp/y", 5.0)]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+    check = client.post(f"/api/checks/{series['id']}").json()
+    assert check["status"] == "posible"
+
+    # Confirmar como disponible.
+    res = client.patch(f"/api/checks/{check['id']}", json={"status": "disponible"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "disponible"
+
+    # El listado refleja el nuevo estado en last_check.
+    listed = client.get("/api/series").json()[0]
+    assert listed["last_check"]["status"] == "disponible"
+
+    # Estado inválido -> 422 (Literal de pydantic).
+    assert client.patch(
+        f"/api/checks/{check['id']}", json={"status": "cualquiera"}
+    ).status_code == 422
+
+    # Comprobación inexistente -> 404.
+    assert client.patch(
+        "/api/checks/99999", json={"status": "disponible"}
+    ).status_code == 404

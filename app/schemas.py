@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +37,12 @@ class CheckResultOut(BaseModel):
     result_title: str | None
     price: float | None
     message: str | None
+
+
+class CheckStatusUpdate(BaseModel):
+    # El usuario confirma un "posible" como disponible tras verlo en Amazon,
+    # o lo descarta como falso positivo (no_encontrado).
+    status: Literal["disponible", "no_encontrado"]
 
 
 class SeriesWithLastCheckOut(SeriesOut):

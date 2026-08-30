@@ -41,3 +41,24 @@ async def check_one(series_id: int, db: Session = Depends(get_db)):
     if series is None:
         raise HTTPException(404, "Serie no encontrada")
     return await checker.check_series(db, series)
+
+
+@router.patch("/{check_id}", response_model=schemas.CheckResultOut)
+def update_check_status(
+    check_id: int,
+    payload: schemas.CheckStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    """Confirma o descarta manualmente el resultado de una comprobación.
+
+    La comprobación automática solo puede llegar a 'posible'; es el usuario
+    quien, tras ver el enlace de Amazon, lo confirma como 'disponible' o lo
+    descarta como falso positivo ('no_encontrado').
+    """
+    check = db.get(models.CheckResult, check_id)
+    if check is None:
+        raise HTTPException(404, "Comprobación no encontrada")
+    check.status = payload.status
+    db.commit()
+    db.refresh(check)
+    return check
