@@ -127,6 +127,13 @@ function renderCards(seriesList) {
           </div>
           ${checkedDate ? `<div>${checkedDate}</div>` : ''}
           ${c?.message && status === 'error' ? `<div class="text-danger small">${esc(c.message)}</div>` : ''}
+          ${status === 'posible' && c ? `
+          <div class="d-flex gap-2 mt-2">
+            <button class="btn btn-sm btn-success" onclick="setCheckStatus(${c.id}, 'disponible')"
+                    title="Confirmar que es el número que buscas">✓ Es este</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="setCheckStatus(${c.id}, 'no_encontrado')"
+                    title="Descartar: no es el número que buscas">✗ No es</button>
+          </div>` : ''}
         </div>
         <div class="card-footer bg-white border-0 pt-0 pb-3 px-4">
           <div class="action-btns">
@@ -213,6 +220,18 @@ async function checkOne(id) {
   setStatus('<div class="alert alert-info">Consultando Amazon…</div>');
   try {
     await api(`/api/checks/${id}`, { method: 'POST' });
+    loadSeries();
+  } catch (e) {
+    setStatus(`<div class="alert alert-danger">${e.message}</div>`);
+  }
+}
+
+async function setCheckStatus(checkId, status) {
+  try {
+    await api(`/api/checks/${checkId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
     loadSeries();
   } catch (e) {
     setStatus(`<div class="alert alert-danger">${e.message}</div>`);

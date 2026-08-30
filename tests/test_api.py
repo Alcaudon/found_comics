@@ -106,3 +106,95 @@ def test_check_series_error_recorded(monkeypatch):
 
     checks = client.get(f"/api/series/{series['id']}/checks").json()
     assert len(checks) == 1
+
+
+def test_check_all_bulk_records_results(monkeypatch):
+    """Regresión: 'Comprobar todas' corre en el event loop; el checker no
+    debe usar asyncio.run (antes marcaba todo como 'error')."""
+    from app.services import amazon, checker
+
+    monkeypatch.setattr(checker, "BULK_DELAY_SECONDS", 0)
+
+    s1 = client.post("/api/series", json={"title": "Serie A", "last_number": 1}).json()
+    s2 = client.post("/api/series", json={"title": "Serie B", "last_number": 9}).json()
+
+    async def fake_search(query, client=None, max_retries=0):
+        # Devuelve un resultado que encaja con el siguiente número de cada serie.
+        number = query.strip().split()[-1]
+        return [
+            amazon.AmazonSearchResult(
+                title=f"{query.rsplit(' ', 1)[0]} {number}",
+                url=f"https://www.amazon.es/dp/{number}",
+                price=9.99,
+            )
+        ]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+
+    # TestClient ejecuta las tareas en segundo plano antes de devolver la respuesta.
+    res = client.post("/api/checks/all")
+    assert res.status_code == 200
+
+    for s in (s1, s2):
+        checks = client.get(f"/api/series/{s['id']}/checks").json()
+        assert len(checks) == 1
+        assert checks[0]["status"] == "posible", checks[0]
+        assert checks[0]["status"] != "error"
+
+
+def test_update_check_status(monkeypatch):
+    from app.services import amazon
+
+    series = client.post(
+        "/api/series", json={"title": "Serie Y", "last_number": 3}
+    ).json()
+
+    async def fake_search(query, client=None, max_retries=0):
+        return [amazon.AmazonSearchResult("Serie Y 4", "https://amazon.es/dp/y", 5.0)]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+    check = client.post(f"/api/checks/{series['id']}").json()
+    assert check["status"] == "posible"
+
+    # Confirmar como disponible.
+    res = client.patch(f"/api/checks/{check['id']}", json={"status": "disponible"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "disponible"
+
+    # El listado refleja el nuevo estado en last_check.
+    listed = client.get("/api/series").json()[0]
+    assert listed["last_check"]["status"] == "disponible"
+
+    # Estado inválido -> 422 (Literal de pydantic).
+    assert client.patch(
+        f"/api/checks/{check['id']}", json={"status": "cualquiera"}
+    ).status_code == 422
+
+    # Comprobación inexistente -> 404.
+    assert client.patch(
+        "/api/checks/99999", json={"status": "disponible"}
+    ).status_code == 404
+
+
+def test_list_series_returns_latest_check(monkeypatch):
+    from app.services import amazon
+
+    series = client.post(
+        "/api/series", json={"title": "Serie Z", "last_number": 0}
+    ).json()
+
+    statuses = iter(["no_encontrado", "posible"])
+
+    async def fake_search(query, client=None, max_retries=0):
+        # Primera comprobación: sin resultados. Segunda: un match.
+        if next(statuses) == "no_encontrado":
+            return []
+        return [amazon.AmazonSearchResult("Serie Z 1", "https://amazon.es/dp/z", 1.0)]
+
+    monkeypatch.setattr(amazon, "search", fake_search)
+    client.post(f"/api/checks/{series['id']}")  # -> no_encontrado
+    client.post(f"/api/checks/{series['id']}")  # -> posible
+
+    listed = client.get("/api/series").json()[0]
+    # Debe reflejar la MÁS reciente (posible), no la primera.
+    assert listed["last_check"]["status"] == "posible"

@@ -43,7 +43,7 @@ class CheckResult(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    price: Mapped[str | None] = mapped_column(Float, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     series: Mapped[Series] = relationship(back_populates="checks")

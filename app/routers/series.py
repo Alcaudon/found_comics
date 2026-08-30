@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -10,17 +10,29 @@ router = APIRouter(prefix="/api/series", tags=["series"])
 
 @router.get("", response_model=list[schemas.SeriesWithLastCheckOut])
 def list_series(db: Session = Depends(get_db)):
-    stmt = select(models.Series).order_by(models.Series.title)
-    series_list = db.scalars(stmt).all()
+    series_list = db.scalars(
+        select(models.Series).order_by(models.Series.title)
+    ).all()
+
+    # Última comprobación de cada serie en una sola consulta (evita el N+1).
+    # El id es autoincremental y checked_at se fija al insertar, así que el
+    # mayor id por serie coincide con la comprobación más reciente.
+    latest_ids = (
+        select(func.max(models.CheckResult.id))
+        .group_by(models.CheckResult.series_id)
+        .scalar_subquery()
+    )
+    latest_by_series = {
+        c.series_id: c
+        for c in db.scalars(
+            select(models.CheckResult).where(models.CheckResult.id.in_(latest_ids))
+        )
+    }
+
     out = []
     for s in series_list:
         item = schemas.SeriesWithLastCheckOut.model_validate(s)
-        last = (
-            db.query(models.CheckResult)
-            .filter(models.CheckResult.series_id == s.id)
-            .order_by(models.CheckResult.checked_at.desc(), models.CheckResult.id.desc())
-            .first()
-        )
+        last = latest_by_series.get(s.id)
         item.last_check = schemas.CheckResultOut.model_validate(last) if last else None
         out.append(item)
     return out

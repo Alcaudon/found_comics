@@ -27,20 +27,6 @@ async def preview(file: UploadFile = File(...)):
     )
 
 
-@router.post("/confirm", response_model=schemas.ImportResult)
-async def confirm(payload: schemas.ImportConfirm, db: Session = Depends(get_db)):
-    """Confirma la importación... requiere re-subir el fichero con el mapeo.
-
-    Nota: como el fichero no se persiste entre llamadas, este endpoint
-    espera que el frontend vuelva a enviar el fichero con el mapeo en
-    multipart. Ver /api/import/confirm-file.
-    """
-    raise HTTPException(
-        400,
-        "Usa /api/import/confirm-file enviando el fichero y el mapeo JSON juntos",
-    )
-
-
 @router.post("/confirm-file", response_model=schemas.ImportResult)
 async def confirm_file(
     file: UploadFile = File(...),

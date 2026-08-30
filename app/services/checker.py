@@ -23,9 +23,13 @@ STATUS_NO_ENCONTRADO = "no_encontrado"
 STATUS_ERROR = "error"
 
 
-def check_series_sync(db: Session, series: models.Series) -> models.CheckResult:
-    """Comprueba una serie contra Amazon (bloqueante). Guarda y devuelve
-    el CheckResult.
+async def check_series(db: Session, series: models.Series) -> models.CheckResult:
+    """Comprueba una serie contra Amazon y guarda el CheckResult.
+
+    Es una corrutina: se ejecuta directamente sobre el event loop, tanto
+    desde la ruta individual como desde la comprobación masiva. No usa
+    ``asyncio.run`` porque anidarlo dentro de un loop ya en marcha lanza
+    ``RuntimeError`` (era el motivo de que «Comprobar todas» fallara).
 
     Genera varias consultas (con y sin volumen) porque el campo volumen
     a veces es un año o saga que no forma parte del título en Amazon.
@@ -37,7 +41,7 @@ def check_series_sync(db: Session, series: models.Series) -> models.CheckResult:
     last_error: Exception | None = None
     for query in queries:
         try:
-            results = asyncio.run(amazon.search(query))
+            results = await amazon.search(query)
             if results:
                 all_results.extend(results)
         except amazon.AmazonBlockedError as exc:
@@ -86,7 +90,7 @@ async def check_series_bulk(db: Session, series_list: list[models.Series]) -> li
     for i, series in enumerate(series_list):
         if i > 0:
             await asyncio.sleep(BULK_DELAY_SECONDS)
-        results.append(check_series_sync(db, series))
+        results.append(await check_series(db, series))
     return results
 
 

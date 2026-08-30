@@ -13,13 +13,22 @@ de cómics ya está a la venta en Amazon España.
   `"{título} {volumen} {siguiente número}"`, consulta amazon.es y marca el
   resultado como **posible** (con enlace y precio) para que confirmes
   visualmente.
+- **Confirmación manual**: desde la ficha de una serie con resultado *posible*
+  puedes marcarlo como **disponible** (✓ Es este) tras verlo en Amazon, o
+  descartarlo como falso positivo (✗ No es). La comprobación automática nunca
+  afirma «disponible» por sí sola.
 - **Comprobación masiva** en segundo plano con pausa de 2,5 s entre peticiones
   y rotación de User-Agents para evitar bloqueos.
 - **Historial** de comprobaciones por serie.
 
 ## Instalación
 
+Requiere **Python 3.10 o superior** (FastAPI y pydantic recientes ya no
+soportan 3.9).
+
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -53,6 +62,8 @@ Los tests usan una BD temporal propia y no tocan `found_comics.db`.
   idiomas, formatos digitales, etc.).
 - Variable de entorno `FOUND_COMICS_DB` para cambiar la ruta de la base de
   datos (por defecto `./found_comics.db`).
-- Nota de entorno: en este equipo Windows Defender bloqueaba el binario
-  `pydantic-core==2.46.5` por reputación; se usa `pydantic 2.14.0b1`
-  (core 2.48.0) que carga sin problemas.
+- Nota de entorno (Windows): en algún equipo Windows Defender ha bloqueado
+  por reputación el binario `pydantic-core==2.46.5`. Si ocurre, instala una
+  versión de `pydantic` cuyo `pydantic-core` no esté marcado (por ejemplo
+  `pip install "pydantic==2.14.0b1"`, que trae core 2.48.0). En macOS/Linux
+  no aplica y se usa el `pydantic` estable de `requirements.txt`.
