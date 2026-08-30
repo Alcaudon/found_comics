@@ -17,8 +17,9 @@ de cómics ya está a la venta en Amazon España.
   puedes marcarlo como **disponible** (✓ Es este) tras verlo en Amazon, o
   descartarlo como falso positivo (✗ No es). La comprobación automática nunca
   afirma «disponible» por sí sola.
-- **Comprobación masiva** en segundo plano con pausa de 2,5 s entre peticiones
-  y rotación de User-Agents para evitar bloqueos.
+- **Comprobación masiva** en segundo plano: reutiliza una única sesión HTTP
+  (con sus cookies), imitando a un navegador, y espera ~3 s más un margen
+  aleatorio entre peticiones para reducir los bloqueos de Amazon.
 - **Historial** de comprobaciones por serie.
 
 ## Instalación
