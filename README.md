@@ -13,6 +13,10 @@ de cómics ya está a la venta en Amazon España.
   `"{título} {volumen} {siguiente número}"`, consulta amazon.es y marca el
   resultado como **posible** (con enlace y precio) para que confirmes
   visualmente.
+- **Confirmación manual**: desde la ficha de una serie con resultado *posible*
+  puedes marcarlo como **disponible** (✓ Es este) tras verlo en Amazon, o
+  descartarlo como falso positivo (✗ No es). La comprobación automática nunca
+  afirma «disponible» por sí sola.
 - **Comprobación masiva** en segundo plano con pausa de 2,5 s entre peticiones
   y rotación de User-Agents para evitar bloqueos.
 - **Historial** de comprobaciones por serie.
