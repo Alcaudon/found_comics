@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+found_comics.db
+*.db
+.venv/

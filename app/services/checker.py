@@ -1,0 +1,115 @@
+"""Orquesta la comprobación de una serie: busca en Amazon el
+siguiente número, aplica el detector semiautomático y guarda
+el resultado en el historial.
+"""
+
+import asyncio
+import logging
+
+from sqlalchemy.orm import Session
+
+from app import models
+from app.services import amazon
+from app.services.detector import find_match
+
+logger = logging.getLogger(__name__)
+
+# Pausa entre peticiones en comprobación masiva (segundos)
+BULK_DELAY_SECONDS = 2.5
+
+STATUS_DISPONIBLE = "disponible"
+STATUS_POSIBLE = "posible"
+STATUS_NO_ENCONTRADO = "no_encontrado"
+STATUS_ERROR = "error"
+
+
+def check_series_sync(db: Session, series: models.Series) -> models.CheckResult:
+    """Comprueba una serie contra Amazon (bloqueante). Guarda y devuelve
+    el CheckResult.
+
+    Genera varias consultas (con y sin volumen) porque el campo volumen
+    a veces es un año o saga que no forma parte del título en Amazon.
+    """
+    number = series.next_number
+    queries = amazon.build_queries(series.title, series.volume, number)
+
+    all_results: list[amazon.AmazonSearchResult] = []
+    last_error: Exception | None = None
+    for query in queries:
+        try:
+            results = asyncio.run(amazon.search(query))
+            if results:
+                all_results.extend(results)
+        except amazon.AmazonBlockedError as exc:
+            logger.error("Amazon bloqueado al comprobar %r: %s", series.title, exc)
+            return _save(
+                db, series, number, STATUS_ERROR,
+                message=f"Amazon bloqueó la petición: {exc}",
+            )
+        except Exception as exc:
+            logger.exception("Error inesperado comprobando %r con query %r", series.title, query)
+            last_error = exc
+
+    if last_error and not all_results:
+        return _save(
+            db, series, number, STATUS_ERROR,
+            message=f"Error inesperado: {last_error}",
+        )
+
+    if not all_results:
+        return _save(
+            db, series, number, STATUS_NO_ENCONTRADO,
+            message="Sin resultados en Amazon",
+        )
+
+    # Elimina duplicados por URL manteniendo el orden.
+    seen = set()
+    unique_results = [r for r in all_results if not (r.url in seen or seen.add(r.url))]
+
+    match = find_match(series.title, series.volume, number, unique_results)
+    if match is None:
+        return _save(
+            db, series, number, STATUS_NO_ENCONTRADO,
+            message=f"{len(unique_results)} resultados, ninguno coincide con el número {number}",
+        )
+
+    return _save(
+        db, series, number, STATUS_POSIBLE,
+        url=match.url, result_title=match.title, price=match.price,
+    )
+
+
+async def check_series_bulk(db: Session, series_list: list[models.Series]) -> list[models.CheckResult]:
+    """Comprueba varias series con pausa entre peticiones para no
+    ser bloqueado por Amazon."""
+    results = []
+    for i, series in enumerate(series_list):
+        if i > 0:
+            await asyncio.sleep(BULK_DELAY_SECONDS)
+        results.append(check_series_sync(db, series))
+    return results
+
+
+def _save(
+    db: Session,
+    series: models.Series,
+    number: int,
+    status: str,
+    url: str | None = None,
+    result_title: str | None = None,
+    price: float | None = None,
+    message: str | None = None,
+) -> models.CheckResult:
+    check = models.CheckResult(
+        series_id=series.id,
+        number_searched=number,
+        status=status,
+        url=url,
+        result_title=result_title,
+        price=price,
+        message=message,
+    )
+    db.add(check)
+    db.commit()
+    db.refresh(check)
+    return check
