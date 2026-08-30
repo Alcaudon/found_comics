@@ -11,10 +11,11 @@ de cómics ya está a la venta en Amazon España.
   nueva.
 - **Importación CSV/Excel**: sube tu colección desde una hoja de cálculo con
   vista previa y mapeo de columnas (sugerido automáticamente).
-- **Comprobación en Amazon**: para cada serie construye la consulta
-  `"{título} {volumen} {siguiente número}"`, consulta amazon.es y marca el
-  resultado como **posible** (con enlace y precio) para que confirmes
-  visualmente.
+- **Comprobación en Amazon**: para cada serie busca en amazon.es con
+  `"{título} {volumen} {siguiente número}"` y, como reserva, `"{título}
+  {siguiente número}"` (el volumen a veces es un año o una saga que no forma
+  parte del título real). Marca el resultado como **posible**, con enlace y
+  precio, para que lo confirmes visualmente.
 - **Confirmación manual**: desde la ficha de una serie con resultado *posible*
   puedes marcarlo como **disponible** (✓ Es este) tras verlo en Amazon, o
   descartarlo como falso positivo (✗ No es). La comprobación automática nunca
@@ -41,7 +42,50 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Abre <http://localhost:8000>.
+Abre <http://localhost:8000>. La documentación interactiva que genera FastAPI
+está en <http://localhost:8000/docs>.
+
+## API
+
+Todo lo que hace la interfaz está disponible como API.
+
+### Series
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/api/series` | Lista las series, cada una con su última comprobación. |
+| `POST` | `/api/series` | Crea una serie (`201`). |
+| `GET` | `/api/series/publishers` | Editoriales para el desplegable: las ya usadas más las habituales. |
+| `GET` | `/api/series/{id}` | Una serie con su última comprobación. |
+| `PUT` | `/api/series/{id}` | Actualiza la serie. |
+| `DELETE` | `/api/series/{id}` | Borra la serie **y su historial** (`204`, sin cuerpo). |
+| `GET` | `/api/series/{id}/checks` | Historial de comprobaciones, de la más reciente a la más antigua. |
+
+Cuerpo de alta y edición: `title` (obligatorio), `volume`, `publisher`,
+`last_number`, `notes`. El campo `next_number` es de solo lectura y siempre
+vale `last_number + 1`.
+
+### Comprobaciones
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `POST` | `/api/checks/all` | Lanza la comprobación masiva en segundo plano y responde al momento con cuántas series quedan en cola. |
+| `POST` | `/api/checks/{series_id}` | Comprueba una serie y devuelve el resultado. |
+| `PATCH` | `/api/checks/{check_id}` | Confirma o descarta un resultado: `{"status": "disponible"}` o `{"status": "no_encontrado"}`. Cualquier otro valor da `422`. |
+
+Estados posibles de una comprobación: `disponible`, `posible`,
+`no_encontrado` y `error`. Solo tú puedes fijar `disponible`; la comprobación
+automática nunca pasa de `posible`.
+
+### Importación
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `POST` | `/api/import/preview` | Sube el fichero (multipart) y devuelve columnas, primeras filas y el mapeo sugerido. |
+| `POST` | `/api/import/confirm-file` | Importa: el fichero más el mapeo `{columna: campo}` en JSON, juntos en la misma petición multipart. |
+
+El fichero no se guarda entre llamadas, por eso hay que reenviarlo al
+confirmar.
 
 ## Tests
 
@@ -50,6 +94,36 @@ python -m pytest tests/
 ```
 
 Los tests usan una BD temporal propia y no tocan `found_comics.db`.
+
+## Estructura
+
+| Ruta | Qué hay |
+|---|---|
+| `app/main.py` | Arranque, montaje de `/static` y servido de `index.html`. |
+| `app/models.py`, `app/schemas.py` | Modelos SQLAlchemy y esquemas pydantic. |
+| `app/routers/` | Rutas HTTP: `series`, `checks`, `importer`. |
+| `app/services/amazon.py` | Petición y parseo de amazon.es. **Lo frágil vive aquí.** |
+| `app/services/detector.py` | Decide si un resultado es el número buscado. |
+| `app/services/checker.py` | Orquesta comprobar una serie y guardar el resultado. |
+| `app/web/` | Interfaz: un `index.html`, un `app.js` y un `style.css`. |
+
+### Trampas conocidas ⚠️
+
+Las dos ya rompieron algo; van aquí para no repetirlas.
+
+- **El orden de las rutas importa.** En FastAPI, una ruta literal debe
+  declararse **antes** que la paramétrica del mismo prefijo. Si `/{series_id}`
+  va primero, `/api/checks/all` y `/api/series/publishers` intentan parsear
+  `"all"` y `"publishers"` como enteros y responden **422**. Ya pasó con
+  `/all`, y por eso `/publishers` está declarada antes que `/{series_id}`.
+- **`DELETE` responde 204, sin cuerpo.** En el frontend, `api()` no debe hacer
+  `res.json()` en esas respuestas: reventaba con *Unexpected end of JSON input*
+  y el botón *Borrar* parecía no funcionar (el servidor sí borraba, pero la
+  lista no se refrescaba).
+- **Nada de `asyncio.run()` dentro de una tarea en segundo plano**: ya corre
+  sobre el event loop y lanza `RuntimeError`. El checker es una corrutina y se
+  usa con `await`. Además, una tarea de fondo debe abrir **su propia** sesión
+  de BD: la de la petición se cierra al responder.
 
 ## Notas importantes
 
