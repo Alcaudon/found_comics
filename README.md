@@ -107,23 +107,15 @@ Los tests usan una BD temporal propia y no tocan `found_comics.db`.
 | `app/services/checker.py` | Orquesta comprobar una serie y guardar el resultado. |
 | `app/web/` | Interfaz: un `index.html`, un `app.js` y un `style.css`. |
 
-### Trampas conocidas ⚠️
+### Antes de tocar el código
 
-Las dos ya rompieron algo; van aquí para no repetirlas.
+Las decisiones de diseño, el historial y las **trampas conocidas** (cosas que ya
+rompieron algo: el orden de las rutas y su `422`, el `204` sin cuerpo del
+`DELETE`, `asyncio.run` en tareas de fondo, los bloqueos intermitentes de
+Amazon…) están en [`AGENTS.md`](AGENTS.md), la memoria viva del proyecto.
 
-- **El orden de las rutas importa.** En FastAPI, una ruta literal debe
-  declararse **antes** que la paramétrica del mismo prefijo. Si `/{series_id}`
-  va primero, `/api/checks/all` y `/api/series/publishers` intentan parsear
-  `"all"` y `"publishers"` como enteros y responden **422**. Ya pasó con
-  `/all`, y por eso `/publishers` está declarada antes que `/{series_id}`.
-- **`DELETE` responde 204, sin cuerpo.** En el frontend, `api()` no debe hacer
-  `res.json()` en esas respuestas: reventaba con *Unexpected end of JSON input*
-  y el botón *Borrar* parecía no funcionar (el servidor sí borraba, pero la
-  lista no se refrescaba).
-- **Nada de `asyncio.run()` dentro de una tarea en segundo plano**: ya corre
-  sobre el event loop y lanza `RuntimeError`. El checker es una corrutina y se
-  usa con `await`. Además, una tarea de fondo debe abrir **su propia** sesión
-  de BD: la de la petición se cierra al responder.
+Regla para saber dónde escribir: **cómo se usa → este README; por qué está así,
+qué se decidió o qué nos rompió → `AGENTS.md`**.
 
 ## Notas importantes
 
