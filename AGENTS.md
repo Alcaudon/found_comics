@@ -16,7 +16,7 @@
 > **Cómo mantenerlo**: ver [Cómo actualizar este fichero](#cómo-actualizar-este-fichero)
 > al final. Regla corta: se actualiza en el mismo commit que el cambio que lo motiva.
 
-**Última actualización:** 30 de agosto de 2026
+**Última actualización:** 31 de agosto de 2026
 
 ---
 
@@ -79,6 +79,13 @@ No hace falta activar el entorno: se puede invocar por ruta.
 ./.venv/bin/python -m pytest tests/         # los tests usan su propia BD temporal
 ```
 
+**Copias de trabajo nuevas (worktrees).** `.venv` y `found_comics.db` están
+ignoradas por git, así que un worktree recién creado nace sin entorno y sin datos.
+`scripts/setup-worktree.sh` lo rehace: busca un Python ≥3.10, crea el entorno,
+instala las dependencias y —si lo lanza Orca, que pasa `$ORCA_ROOT_PATH`— copia la
+base de datos del checkout principal. Orca lo ejecuta solo al crear cada worktree
+según `orca.yaml`; a mano es `bash scripts/setup-worktree.sh`.
+
 ---
 
 ## 4. Decisiones tomadas (y por qué)
@@ -105,6 +112,14 @@ No hace falta activar el entorno: se puede invocar por ruta.
   de un número de versión a mano que se olvidaría de subir.
 - **`requirements.txt` fija pydantic estable**, no la beta. La beta `2.14.0b1` solo es un
   apaño para un equipo Windows concreto (ver README), no la configuración normal.
+- **El setup de los worktrees es un script versionado, no un comando en los ajustes
+  de Orca.** Puesto en la app solo valdría para esta máquina y no se podría ejecutar a
+  mano; en `scripts/setup-worktree.sh` sirve también para preparar un clon nuevo y se
+  puede depurar como cualquier otro script. `orca.yaml` se limita a invocarlo.
+- **El worktree recibe una copia de la base de datos, no un enlace.** Compartir el
+  fichero dejaría que un agente probando cualquier cosa escribiera en la colección de
+  verdad; copiarlo da datos reales con los que probar y un destrozo que se arregla
+  borrando el worktree.
 - **Los cambios entran por Pull Request.** Aunque el repo sea de una sola persona, da la
   pantalla de revisión del diff antes de que nada toque `master`.
 
@@ -164,6 +179,7 @@ De lo más reciente a lo más antiguo.
 
 | Fecha | Cambio |
 |---|---|
+| 31-ago-2026 | **Setup de worktrees** (#7): `scripts/setup-worktree.sh` (Python ≥3.10, entorno, dependencias y copia de la BD) enganchado a Orca con `orca.yaml`. |
 | 30-ago-2026 | **`AGENTS.md` como memoria viva** y `CLAUDE.md` reducido a importarlo. |
 | 30-ago-2026 | **Documentación** (#5): referencia completa de la API (12 rutas, contrastadas contra el esquema OpenAPI), estructura del proyecto y trampas conocidas. |
 | 30-ago-2026 | **Menos falsos positivos** (#4): puntuación por editorial/volumen/contexto en vez de «el primero que casa», exclusión de ediciones en otro idioma y formatos digitales, y editorial como desplegable (`GET /api/series/publishers`). `publisher` deja de ser decorativo y `volume` de ser un parámetro muerto. |
