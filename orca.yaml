@@ -1,0 +1,15 @@
+# Hooks de Orca (https://onorca.dev) para este repositorio.
+#
+# Van versionados, así que valen para cualquier máquina que abra el proyecto.
+# Orca pide confirmación antes de ejecutarlos la primera vez y cada vez que este
+# fichero cambia.
+
+# Sin .venv el agente no puede ni lanzar los tests: que espere al setup.
+setupAgentStartupPolicy: wait-for-setup
+
+scripts:
+  # Se ejecuta dentro del worktree recién creado ($ORCA_WORKTREE_PATH, que es
+  # también el directorio de trabajo). $ORCA_ROOT_PATH apunta al checkout
+  # principal, de donde el script copia la base de datos local.
+  setup: |
+    bash scripts/setup-worktree.sh
