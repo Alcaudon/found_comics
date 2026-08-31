@@ -36,6 +36,19 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### De una vez, con un script
+
+`scripts/setup-worktree.sh` hace todo lo anterior sin preguntar: busca un Python
+válido, crea el entorno e instala las dependencias.
+
+```bash
+bash scripts/setup-worktree.sh
+```
+
+[Orca](https://onorca.dev) lo ejecuta solo cada vez que crea un worktree, según
+`orca.yaml`. En ese caso además copia tu `found_comics.db` del checkout
+principal, para que el worktree arranque con datos reales sin tocar el original.
+
 ## Ejecución
 
 ```bash
